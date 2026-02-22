@@ -138,7 +138,7 @@ gpio_status_t GPIO_Toggle_Pin(GPIO_TypeDef *port, uint32_t pin){
 	return GPIO_OK;
 }
 
-uint32_t GPIO_Is_High(GPIO_TypeDef*port, gpio_status_t pin) {
+uint32_t GPIO_Is_High(GPIO_TypeDef*port, uint32_t pin) {
 	uint32_t value;
 	if(GPIO_Read_Pin(port,pin, &value) !=GPIO_OK){
 		return -1;
@@ -146,7 +146,7 @@ uint32_t GPIO_Is_High(GPIO_TypeDef*port, gpio_status_t pin) {
 	return (value != 0x0U);
 }
 
-uint32_t GPIO_Is_Low(GPIO_TypeDef*port, gpio_status_t pin) {
+uint32_t GPIO_Is_Low(GPIO_TypeDef*port, uint32_t pin) {
 	uint32_t value;
 	if(GPIO_Read_Pin(port,pin, &value) !=GPIO_OK){
 		return -1;

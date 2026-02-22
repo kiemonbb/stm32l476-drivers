@@ -56,7 +56,7 @@ gpio_status_t GPIO_Read_Pin(GPIO_TypeDef* port, uint32_t pin, uint32_t* value);
 gpio_status_t GPIO_Write_Pin(GPIO_TypeDef* port, uint32_t pin, uint32_t value);
 gpio_status_t GPIO_Toggle_Pin(GPIO_TypeDef* port, uint32_t pin);
 
-uint32_t GPIO_Is_High(GPIO_TypeDef*port, gpio_status_t pin);
-uint32_t GPIO_Is_Low(GPIO_TypeDef*port, gpio_status_t pin);
+uint32_t GPIO_Is_High(GPIO_TypeDef*port, uint32_t pin);
+uint32_t GPIO_Is_Low(GPIO_TypeDef*port, uint32_t pin);
 
 #endif
