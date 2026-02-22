@@ -2,9 +2,11 @@ CC = arm-none-eabi-gcc
 OBJCOPY = arm-none-eabi-objcopy
 
 CMSIS_SRC = cmsis/device/startup_stm32l476xx.c cmsis/device/system_stm32l4xx.c
+CORE_SRC = core/system_init.c core/systick.c
 
 CMSIS_OBJ = cmsis/device/startup_stm32l476xx.o cmsis/device/system_stm32l4xx.o
 GPIO_OBJ = src/gpio.o
+CORE_OBJ = core/system_init.o core/systick.o
 
 CFLAGS =	-mcpu=cortex-m4 
 CFLAGS +=	-DSTM32L476xx 
@@ -28,7 +30,7 @@ all: gpio_blink
 
 gpio_blink: gpio_blink.elf
 
-gpio_blink.elf: $(CMSIS_OBJ) $(GPIO_OBJ) examples/gpio_blink/main.o
+gpio_blink.elf: $(CMSIS_OBJ) $(GPIO_OBJ) $(CORE_OBJ) examples/gpio_blink/main.o
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
 
 
@@ -38,7 +40,7 @@ flash-%: %.elf
 	$(PROGRAMMER) $(PROGRAMMER_FLAGS) -c "program $< verify reset exit"
 
 clean:
-	rm -f $(CMSIS_OBJ) $(GPIO_OBJ) $(wildcard examples/**/main.o) *.elf *.bin
+	rm -f $(CMSIS_OBJ) $(GPIO_OBJ) $(CORE_OBJ) $(wildcard examples/**/main.o) *.elf *.bin
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
