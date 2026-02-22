@@ -128,6 +128,16 @@ gpio_status_t GPIO_Write_Pin(GPIO_TypeDef* port, uint32_t pin, uint32_t value){
 	return GPIO_OK;
 }
 
+gpio_status_t GPIO_Toggle_Pin(GPIO_TypeDef *port, uint32_t pin){
+	if(!GPIO_Is_Valid_Pin(pin)) {
+		return GPIO_ERROR_INVALID_PIN;
+	}
+
+	port->ODR ^= (0x1U << pin);
+
+	return GPIO_OK;
+}
+
 uint32_t GPIO_Is_High(GPIO_TypeDef*port, gpio_status_t pin) {
 	uint32_t value;
 	if(GPIO_Read_Pin(port,pin, &value) !=GPIO_OK){
