@@ -1,7 +1,7 @@
 CC = arm-none-eabi-gcc
 OBJCOPY = arm-none-eabi-objcopy
 
-SRC = src/main.c cmsis/device/startup_stm32l476xx.c cmsis/device/system_stm32l4xx.c
+SRC = $(wildcard src/*.c) cmsis/device/startup_stm32l476xx.c cmsis/device/system_stm32l4xx.c
 OBJ = $(SRC:.c=.o)
 
 CFLAGS =	-mcpu=cortex-m4 
