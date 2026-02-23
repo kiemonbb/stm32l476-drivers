@@ -6,6 +6,7 @@ CORE_SRC = core/system_init.c core/systick.c
 
 CMSIS_OBJ = cmsis/device/startup_stm32l476xx.o cmsis/device/system_stm32l4xx.o
 GPIO_OBJ = src/gpio.o
+USART_OBJ = src/usart.o
 CORE_OBJ = core/system_init.o core/systick.o
 
 CFLAGS =	-mcpu=cortex-m4 
@@ -24,7 +25,7 @@ LDFLAGS = -T $(LINKER_FILE) --specs=nosys.specs -nostartfiles
 PROGRAMMER = openocd
 PROGRAMMER_FLAGS = -f interface/stlink.cfg -f target/stm32l4x.cfg
 
-.PHONY: all clean flash flash-% gpio_blink
+.PHONY: all clean flash flash-% gpio_blink usart_send
 
 all: gpio_blink
 
@@ -33,6 +34,10 @@ gpio_blink: gpio_blink.elf
 gpio_blink.elf: $(CMSIS_OBJ) $(GPIO_OBJ) $(CORE_OBJ) examples/gpio_blink/main.o
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
 
+usart_send: usart_send.elf
+
+usart_send.elf: $(CMSIS_OBJ) $(GPIO_OBJ) $(USART_OBJ) $(CORE_OBJ) examples/usart_send/main.o
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
 
 flash: flash-gpio_blink
 
