@@ -45,7 +45,7 @@ flash-%: %.elf
 	$(PROGRAMMER) $(PROGRAMMER_FLAGS) -c "program $< verify reset exit"
 
 clean:
-	rm -f $(CMSIS_OBJ) $(GPIO_OBJ) $(CORE_OBJ) $(wildcard examples/**/main.o) *.elf *.bin
+	rm -f $(CMSIS_OBJ) $(GPIO_OBJ) $(USART_OBJ) $(CORE_OBJ) $(wildcard examples/**/main.o) *.elf *.bin
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
