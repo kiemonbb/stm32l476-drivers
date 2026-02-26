@@ -8,6 +8,7 @@
 #define USART_MAX_DELAY 0xFFFFFFFF
  
 typedef enum {
+	USART_MODE_POLLING,
 	USART_MODE_INTERRUPT,
 	USART_MODE_DMA
 } usart_mode_t;

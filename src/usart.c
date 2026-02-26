@@ -27,7 +27,6 @@ static void USART2_Config(void){
 	(void)RCC->APB1ENR1;
  
 	NVIC_EnableIRQ(USART2_IRQn);
-	NVIC_SetPriority(USART2_IRQn, 8);
 }
  
 static void USART3_Config(void){
@@ -58,14 +57,18 @@ static void USART_Init(USART_TypeDef* instance) {
  
 	//TODO: Take prescalers into account
 	instance->BRR = (uint32_t)(SystemCoreClock/115200);
- 
+
 	instance->CR1 |= USART_CR1_UE;
- 
+
 	instance->CR1 |= USART_CR1_TE | USART_CR1_RE;
  
 	while(!(instance->ISR & USART_ISR_TEACK));
 	while(!(instance->ISR & USART_ISR_REACK));
- 
+}
+
+static void USART_IT_Init(USART_TypeDef*instance) {
+	USART_Init(instance);
+	instance->CR1 |= USART_CR1_RXNEIE;
 }
  
 void USART_Transmit(usart_handle_t* husart, const uint8_t * data, uint32_t byte_size, uint32_t timeout_ms) {
@@ -213,10 +216,8 @@ static void USART_RX_DMA_Config(usart_handle_t* husart) {
 static void USART_TX_DMA_Config(usart_handle_t *husart){
 	husart->tx_dma->CCR &= ~DMA_CCR_EN;
  
- 
 	DMA1_CSELR->CSELR &= ~(0xFU << dma_channel_to_cselr_pos(husart->tx_dma));
 	DMA1_CSELR->CSELR |= (0x2U<< dma_channel_to_cselr_pos(husart->tx_dma));
- 
  
 	husart->tx_dma->CCR &= ~(DMA_CCR_MEM2MEM | DMA_CCR_PSIZE);
 	husart->tx_dma->CCR |= (DMA_CCR_MINC | DMA_CCR_DIR | DMA_CCR_TCIE);
@@ -225,10 +226,11 @@ static void USART_TX_DMA_Config(usart_handle_t *husart){
 	husart->instance->CR3 |= USART_CR3_DMAT;
  
 	NVIC_EnableIRQ(husart->tx_dma_irq);
-	NVIC_SetPriority(husart->tx_dma_irq, 8);
 }
  
 static void USART_DMA_Init(usart_handle_t * husart){
+	USART_Init(husart->instance);
+
 	RCC->AHB1ENR |= RCC_AHB1ENR_DMA1EN;
 	(void)RCC->AHB1ENR;
  
@@ -353,12 +355,13 @@ void USART_Handle_Init(usart_handle_t*husart, USART_TypeDef* instance, usart_mod
 		husart->rx_dma = DMA1_Channel3;
 		husart->tx_dma_irq = DMA1_Channel2_IRQn; 
 	}
-	if(mode == USART_MODE_INTERRUPT) {
+	if(mode == USART_MODE_POLLING) {
 		USART_Init(instance);
-		instance->CR1 |= USART_CR1_RXNEIE;
+	}
+	else if(mode == USART_MODE_INTERRUPT) {
+		USART_IT_Init(instance);
 	}
 	else if(mode == USART_MODE_DMA){
-		USART_Init(instance);
 		USART_DMA_Init(husart);		
 	}
 }
