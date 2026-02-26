@@ -1,21 +1,53 @@
 #ifndef USART_H
 #define USART_H
-
+ 
 #include "stm32l476xx.h"
 #include <stdint.h>
 
-void USART_Init(USART_TypeDef* usart);
+#define USART_NO_DELAY 0x0
+#define USART_MAX_DELAY 0xFFFFFFFF
+ 
+typedef enum {
+	USART_MODE_INTERRUPT,
+	USART_MODE_DMA
+} usart_mode_t;
+ 
+typedef struct{
+	USART_TypeDef* instance;
+	usart_mode_t mode;
+	const uint8_t *tx_buffer;
+	uint32_t tx_size;
+	volatile uint32_t tx_index;
+	volatile uint8_t tx_busy;
+ 
+    uint8_t *rx_buffer;
+    uint32_t rx_size;
+	volatile uint32_t rx_head;
+	volatile uint32_t rx_dma_head;
+	volatile uint32_t rx_tail;
+	volatile uint32_t rx_lost_bytes;
+	volatile uint8_t rx_ready;
+ 
+	DMA_Channel_TypeDef* rx_dma;
+	DMA_Channel_TypeDef* tx_dma;
+	IRQn_Type tx_dma_irq;
+} usart_handle_t;
 
-void USART_Write_Char(USART_TypeDef*usart, char c);
-
-void USART_Write_String(USART_TypeDef*usart, const char *str);
-
-void USART_Write_Int(USART_TypeDef*usart, uint32_t num);
-
-void USART1_IRQHandler(void);
-
-void USART2_IRQHandler(void);
-
-void USART3_IRQHandler(void);
-
+/* API Functions */
+ 
+void USART_Handle_Init(usart_handle_t*husart, USART_TypeDef* instance, usart_mode_t mode, uint8_t *rx_buffer, uint32_t rx_size);
+ 
+void USART_Transmit(usart_handle_t* husart, const uint8_t * data, uint32_t byte_size, uint32_t timeout_ms);
+ 
+void USART_Receive(usart_handle_t*husart,uint8_t *buffer, uint32_t byte_size, uint32_t timeout_ms);
+ 
+void USART_Transmit_IT(usart_handle_t*husart,const uint8_t*data,uint32_t byte_size);
+ 
+uint32_t USART_Read_IT(usart_handle_t* husart, uint8_t *buffer, uint32_t byte_size);
+ 
+void USART_Transmit_DMA(usart_handle_t * husart, const uint8_t*data,uint32_t byte_size);
+ 
+uint32_t USART_Read_DMA(usart_handle_t* husart, uint8_t*buffer,uint32_t byte_size);
+ 
 #endif
+
