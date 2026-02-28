@@ -72,15 +72,15 @@ static void USART_IT_Init(USART_TypeDef*instance) {
 }
  
 void USART_Transmit(usart_handle_t* husart, const uint8_t * data, uint32_t byte_size, uint32_t timeout_ms) {
-	if(husart->tx_busy) return;
-	husart->tx_busy = 1;
- 
+	if(husart->tx_state == USART_STATE_BUSY) return;
+	husart->tx_state = USART_STATE_BUSY;
+
 	uint32_t i = 0;
 	while(i < byte_size){
 		uint32_t current_ms = systick_ms;
 		while(!(husart->instance->ISR & USART_ISR_TXE)) {	
 			if(systick_ms-current_ms >= timeout_ms || timeout_ms == 0){
-				husart->tx_busy = 0;
+				husart->tx_state = USART_STATE_READY;
 				return;
 			}	
 		}
@@ -92,7 +92,7 @@ void USART_Transmit(usart_handle_t* husart, const uint8_t * data, uint32_t byte_
 		if(systick_ms-current_ms >= timeout_ms || timeout_ms == 0) break;
 	}
  
-	husart->tx_busy = 0;
+	husart->tx_state = USART_STATE_READY;
 }
  
 void USART_Receive(usart_handle_t*husart,uint8_t *buffer, uint32_t byte_size, uint32_t timeout_ms) {
@@ -107,8 +107,9 @@ void USART_Receive(usart_handle_t*husart,uint8_t *buffer, uint32_t byte_size, ui
 }
  
 void USART_Transmit_IT(usart_handle_t*husart, const uint8_t*data,uint32_t byte_size) {
-	if(husart->tx_busy) return;
-	husart->tx_busy = 1;
+	if(husart->tx_state == USART_STATE_BUSY) return;
+	husart->tx_state = USART_STATE_BUSY;
+
 	husart->tx_buffer = data;
 	husart->tx_size = byte_size;
 	husart->tx_index = 0;
@@ -126,8 +127,8 @@ uint32_t USART_Read_IT(usart_handle_t* husart, uint8_t *buffer, uint32_t byte_si
 }
  
 uint32_t USART_Read_DMA(usart_handle_t* husart, uint8_t*buffer,uint32_t byte_size){
-	if(!husart->rx_ready) return 0;
-	husart->rx_ready = 0;
+	if(husart->rx_state == USART_STATE_BUSY) return 0;
+	husart->rx_state = USART_STATE_BUSY;
 	uint32_t remaining = husart->rx_dma->CNDTR;
 	uint32_t new_head = husart->rx_size - remaining;
  
@@ -152,9 +153,9 @@ uint32_t USART_Read_DMA(usart_handle_t* husart, uint8_t*buffer,uint32_t byte_siz
 }
  
 void USART_Transmit_DMA(usart_handle_t * husart, const uint8_t*data,uint32_t byte_size){
-	if(husart->tx_busy) return;
- 
-	husart->tx_busy = 1;
+	if(husart->tx_state == USART_STATE_BUSY) return;
+	husart->tx_state = USART_STATE_BUSY;
+
 	husart->tx_buffer = data;
 	husart->tx_size = byte_size;
  
@@ -260,7 +261,7 @@ static void USART_IRQ_Handler(usart_handle_t * husart) {
  
 		husart->instance->ICR = USART_ICR_TCCF;
 		husart->instance->CR1 &= ~USART_CR1_TCIE; 
-		husart->tx_busy = 0;
+		husart->tx_state = USART_STATE_READY;
 	}
  
 	// RX Not Empty
@@ -283,7 +284,7 @@ static void USART_IRQ_Handler(usart_handle_t * husart) {
 	   (husart->instance->CR1 & USART_CR1_IDLEIE)){
  
 		husart->instance->ICR = USART_ICR_IDLECF;
-		husart->rx_ready = 1;
+		husart->rx_state = USART_STATE_READY;
 	}
 }
  
@@ -335,10 +336,10 @@ void USART_Handle_Init(usart_handle_t*husart, USART_TypeDef* instance, usart_mod
 	husart->rx_head = 0;
 	husart->rx_dma_head = 0;
 	husart->rx_tail = 0;
-	husart->rx_ready = 0;
+	husart->rx_state = USART_STATE_READY;
 	husart->rx_lost_bytes = 0;
+	husart->tx_state = USART_STATE_READY;
 	husart->mode = mode;
-	husart->tx_busy = 0;
 	if(instance == USART1) {
 		usart_table[0] = husart;
 		husart->tx_dma = DMA1_Channel4;

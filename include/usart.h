@@ -12,6 +12,11 @@ typedef enum {
 	USART_MODE_INTERRUPT,
 	USART_MODE_DMA
 } usart_mode_t;
+
+typedef enum {
+	USART_STATE_READY,
+	USART_STATE_BUSY
+}usart_state_t;
  
 typedef struct{
 	USART_TypeDef* instance;
@@ -19,7 +24,7 @@ typedef struct{
 	const uint8_t *tx_buffer;
 	uint32_t tx_size;
 	volatile uint32_t tx_index;
-	volatile uint8_t tx_busy;
+	volatile usart_state_t tx_state;
  
     uint8_t *rx_buffer;
     uint32_t rx_size;
@@ -27,7 +32,7 @@ typedef struct{
 	volatile uint32_t rx_dma_head;
 	volatile uint32_t rx_tail;
 	volatile uint32_t rx_lost_bytes;
-	volatile uint8_t rx_ready;
+	volatile usart_state_t rx_state;
  
 	DMA_Channel_TypeDef* rx_dma;
 	DMA_Channel_TypeDef* tx_dma;
