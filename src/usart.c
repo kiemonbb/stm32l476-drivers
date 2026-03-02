@@ -10,9 +10,11 @@ static usart_handle_t *usart_table[USART_MAX_INSTANCES] = {0};
 extern volatile uint32_t systick_ms;
  
 static void USART1_Config(void){
+	/* Enable Receiver and Transmitter GPIO pins*/
 	GPIO_Enable_AF(GPIOA, 9, 7UL, GPIO_PULL_NONE,GPIO_SPEED_HIGH);
 	GPIO_Enable_AF(GPIOA, 10, 7UL, GPIO_PULL_UP,GPIO_SPEED_HIGH);
  
+	/* Enable GPIO Clock */
 	RCC->APB2ENR |= RCC_APB2ENR_USART1EN;
 	(void)RCC->APB2ENR;
  
@@ -20,9 +22,11 @@ static void USART1_Config(void){
 }
  
 static void USART2_Config(void){
+	/* Enable Receiver and Transmitter GPIO pins*/
 	GPIO_Enable_AF(GPIOA, 2, 7UL, GPIO_PULL_NONE,GPIO_SPEED_HIGH);
 	GPIO_Enable_AF(GPIOA, 3, 7UL, GPIO_PULL_UP,GPIO_SPEED_HIGH);
  
+	/* Enable GPIO Clock */
 	RCC->APB1ENR1 |= RCC_APB1ENR1_USART2EN;
 	(void)RCC->APB1ENR1;
  
@@ -30,9 +34,11 @@ static void USART2_Config(void){
 }
  
 static void USART3_Config(void){
+	/* Enable Receiver and Transmitter GPIO pins*/
 	GPIO_Enable_AF(GPIOC, 10, 7UL, GPIO_PULL_NONE,GPIO_SPEED_HIGH);
 	GPIO_Enable_AF(GPIOC, 11, 7UL, GPIO_PULL_UP,GPIO_SPEED_HIGH);
  
+	/* Enable GPIO Clock */
 	RCC->APB1ENR1 |= RCC_APB1ENR1_USART3EN;
 	(void)RCC->APB1ENR1;
  
@@ -46,80 +52,119 @@ static void USART_Config(USART_TypeDef* instance) {
 }
  
 static void USART_Init(USART_TypeDef* instance) {
+	/* Init the low level hardware: GPIO, CLOCK */
 	USART_Config(instance);
+ 
+	/* Disable the USART Peripheral */
 	instance->CR1 &= ~USART_CR1_UE;
  
-	instance->CR1 &= ~(USART_CR1_M0 | USART_CR1_M1);
+	/* Set the word size to 8 bits and disable the parity bit */
+	instance->CR1 &= ~(USART_CR1_M0 | USART_CR1_M1 | USART_CR1_PCE);
  
-	instance->CR1 &= ~USART_CR1_PCE;
- 
+	/* Enable 1 stop bit */
 	instance->CR2 &= ~USART_CR2_STOP;
  
-	//TODO: Take prescalers into account
+	/* Set the Baud Rate (TODO: Take prescalers into account) */
 	instance->BRR = (uint32_t)(SystemCoreClock/115200);
-
-	instance->CR1 |= USART_CR1_UE;
-
-	instance->CR1 |= USART_CR1_TE | USART_CR1_RE;
  
+	/* Enable the USART Peripheral */
+	instance->CR1 |= USART_CR1_UE;
+ 
+	/* Enable Transmitter and Receiver */
+	instance->CR1 |= USART_CR1_TE | USART_CR1_RE;
 	while(!(instance->ISR & USART_ISR_TEACK));
 	while(!(instance->ISR & USART_ISR_REACK));
 }
-
+ 
 static void USART_IT_Init(USART_TypeDef*instance) {
 	USART_Init(instance);
+ 
+	/* Enable the USART Data Register Not Empty Interrupt */
 	instance->CR1 |= USART_CR1_RXNEIE;
 }
- 
-void USART_Transmit(usart_handle_t* husart, const uint8_t * data, uint32_t byte_size, uint32_t timeout_ms) {
-	if(husart->tx_state == USART_STATE_BUSY) return;
-	husart->tx_state = USART_STATE_BUSY;
 
+usart_status_t USART_Transmit(usart_handle_t* husart, const uint8_t * data, uint32_t byte_size, uint32_t timeout_ms) {
+	/* Check whether USART TX line is ready */
+	if(husart->tx_state == USART_STATE_BUSY) return USART_ERROR_BUSY;
+	husart->tx_state = USART_STATE_BUSY;
+ 
 	uint32_t i = 0;
 	while(i < byte_size){
 		uint32_t current_ms = systick_ms;
+		/* Wait until Transmit Data Register (TDR) is empty */
 		while(!(husart->instance->ISR & USART_ISR_TXE)) {	
+			/* Check timeout condition */
 			if(systick_ms-current_ms >= timeout_ms || timeout_ms == 0){
 				husart->tx_state = USART_STATE_READY;
-				return;
+				return USART_ERROR_TIMEOUT;
 			}	
 		}
+		/* Load data into TDR and increment index */
 		husart->instance->TDR = data[i++];
 	}
  
 	uint32_t current_ms = systick_ms;
+	/* Wait until Transmission Complete flag is set to ensure all bits are shifted out */
 	while(!(husart->instance->ISR & USART_ISR_TC)) {	
-		if(systick_ms-current_ms >= timeout_ms || timeout_ms == 0) break;
+		/* Check timeout condition */
+		if(systick_ms-current_ms >= timeout_ms || timeout_ms == 0) {
+			husart->tx_state = USART_STATE_READY;
+			return USART_ERROR_TIMEOUT;
+		}
 	}
  
 	husart->tx_state = USART_STATE_READY;
+	return USART_OK;
 }
  
-void USART_Receive(usart_handle_t*husart,uint8_t *buffer, uint32_t byte_size, uint32_t timeout_ms) {
+usart_status_t USART_Receive(usart_handle_t*husart,uint8_t *buffer, uint32_t byte_size, uint32_t timeout_ms) {
+	/* Check whether USART RX line is ready */
+	if(husart->rx_state == USART_STATE_BUSY) return USART_ERROR_BUSY;
+	husart->rx_state = USART_STATE_BUSY;
+
 	uint32_t i = 0;
 	while(i < byte_size){
 		uint32_t current_ms = systick_ms;
+		/* Wait until data comes into Receive Data Register (RDR) */
 		while(!(husart->instance->ISR & USART_ISR_RXNE)) {	
-		if(systick_ms-current_ms >= timeout_ms || timeout_ms == 0) return;
+			/* Check the timeout condition */
+			if(systick_ms-current_ms >= timeout_ms || timeout_ms == 0) {
+				husart->rx_state = USART_STATE_READY;
+				return USART_ERROR_TIMEOUT;
+			}
 		}
+
+		/* Load data from RDR onto the buffer */
 		buffer[i++] = husart->instance->RDR;
 	}
+
+	husart->rx_state = USART_STATE_READY;
+	return USART_OK;
 }
  
-void USART_Transmit_IT(usart_handle_t*husart, const uint8_t*data,uint32_t byte_size) {
-	if(husart->tx_state == USART_STATE_BUSY) return;
+usart_status_t USART_Transmit_IT(usart_handle_t*husart, const uint8_t*data,uint32_t byte_size) {
+	/* Check whether USART TX line is ready */
+	if(husart->tx_state == USART_STATE_BUSY) return USART_ERROR_BUSY;
 	husart->tx_state = USART_STATE_BUSY;
-
+ 
+	/* Configure the handle parameters responsible for Interrupt Transmission */
 	husart->tx_buffer = data;
 	husart->tx_size = byte_size;
 	husart->tx_index = 0;
  
+	/* Enable the USART Transmit Data Register Empty Interrupt */
 	husart->instance->CR1 |= USART_CR1_TXEIE;
+	return USART_OK;
 }
  
 uint32_t USART_Read_IT(usart_handle_t* husart, uint8_t *buffer, uint32_t byte_size) {
+	/* Save the rx_head in case of USART RXNE interrupt happening and modifying it */
+	husart->instance->CR1 &= ~USART_CR1_RXNEIE;
+    uint32_t head = husart->rx_head;
+    husart->instance->CR1 |= USART_CR1_RXNEIE;
+ 
     uint32_t count = 0;
-    while(count < byte_size && husart->rx_tail != husart->rx_head) {
+    while(count < byte_size && husart->rx_tail != head) {
         buffer[count++] = husart->rx_buffer[husart->rx_tail];
         husart->rx_tail = (husart->rx_tail + 1) % husart->rx_size;
     }
@@ -127,13 +172,14 @@ uint32_t USART_Read_IT(usart_handle_t* husart, uint8_t *buffer, uint32_t byte_si
 }
  
 uint32_t USART_Read_DMA(usart_handle_t* husart, uint8_t*buffer,uint32_t byte_size){
-	if(husart->rx_state == USART_STATE_BUSY) return 0;
-	husart->rx_state = USART_STATE_BUSY;
+	/* Get the current DMA transfer count to determine how many bytes were reveived */
 	uint32_t remaining = husart->rx_dma->CNDTR;
 	uint32_t new_head = husart->rx_size - remaining;
  
+	/* Return if no new data reveived */
 	if(new_head == husart->rx_dma_head) return 0;
  
+	/* Calculate total bytes received, accounting for circular buffer */
     uint32_t received;
     if(new_head > husart->rx_dma_head) {
         received = new_head - husart->rx_dma_head;
@@ -141,31 +187,39 @@ uint32_t USART_Read_DMA(usart_handle_t* husart, uint8_t*buffer,uint32_t byte_siz
         received = (husart->rx_size - husart->rx_dma_head) + new_head;
     }
  
+	/* Cap the received size to the user provided value */
 	if(received > byte_size) received = byte_size;
  
+	/* Copy data from the internal DMA circular buffer onto the user provided one */
 	uint32_t i =0;
 	while(i < received){
 		buffer[i] = husart->rx_buffer[(husart->rx_dma_head+i)%husart->rx_size];
 		i++;
 	}
-	husart->rx_dma_head = new_head;
+	/* Update the DMA RX head pointer to the new position */
+	husart->rx_dma_head = (husart->rx_dma_head+received)%husart->rx_size;
 	return received;
 }
  
-void USART_Transmit_DMA(usart_handle_t * husart, const uint8_t*data,uint32_t byte_size){
-	if(husart->tx_state == USART_STATE_BUSY) return;
+usart_status_t USART_Transmit_DMA(usart_handle_t * husart, const uint8_t*data,uint32_t byte_size){
+	/* Check whether USART TX line is ready */
+	if(husart->tx_state == USART_STATE_BUSY) return USART_ERROR_BUSY;
 	husart->tx_state = USART_STATE_BUSY;
-
+ 
 	husart->tx_buffer = data;
 	husart->tx_size = byte_size;
  
+	/* Disable the DMA TX Channel */
 	husart->tx_dma->CCR &= ~(DMA_CCR_EN);
 	while(husart->tx_dma->CCR & DMA_CCR_EN);
  
+	/* Set the DMA Memory Address and the number of bytes to transfer */
 	husart->tx_dma->CMAR = (uint32_t)data;
 	husart->tx_dma->CNDTR = byte_size;
  
+	/* Enable the DMA TX Channel */
 	husart->tx_dma->CCR |= DMA_CCR_EN;
+	return USART_OK;
 }
  
 //--- DMA ------------------------------
@@ -195,35 +249,62 @@ static inline uint32_t dma_channel_to_number(DMA_Channel_TypeDef* channel) {
 }
  
 static void USART_RX_DMA_Config(usart_handle_t* husart) {
+	/* Disable DMA on RX Channel */ 
 	husart->rx_dma->CCR &= ~DMA_CCR_EN;
  
+	/* Set the DMA Peripheral Address to USARTX Receive Data Register */ 
 	husart->rx_dma->CPAR = (uint32_t)&husart->instance->RDR;
+ 
+	/* Set the DMA Memory Address to the provided Buffer */
 	husart->rx_dma->CMAR = (uint32_t)husart->rx_buffer;
+ 
+	/* Set the number of data to transfer to size of the Buffer */
 	husart->rx_dma->CNDTR = husart->rx_size;
  
+	/* Set the corresponding DMA Channel to work in USARTX_RX mode */
 	DMA1_CSELR->CSELR &= ~(0xFU << dma_channel_to_cselr_pos(husart->rx_dma));
 	DMA1_CSELR->CSELR |= (0x2U<< dma_channel_to_cselr_pos(husart->rx_dma));
  
-	husart->rx_dma->CCR &= ~(DMA_CCR_MEM2MEM | DMA_CCR_PSIZE | DMA_CCR_DIR );
+	/* Disable memory-to-memory mode, set data size of each DMA transfer to 8 bits */
+	husart->rx_dma->CCR &= ~(DMA_CCR_MEM2MEM | DMA_CCR_PSIZE | DMA_CCR_MSIZE);
+ 
+	/* Set the data transfer direction to Read from Peripheral */
+	husart->rx_dma->CCR &= ~DMA_CCR_DIR;
+ 
+	/* Enable Memory Increment Mode and Circular Mode */
 	husart->rx_dma->CCR |= (DMA_CCR_MINC | DMA_CCR_CIRC);
  
+	/* Enable DMA on TX Channel */
 	husart->rx_dma->CCR |= DMA_CCR_EN;
  
+	/* Enable USARTX Receiver DMA Mode */
 	husart->instance->CR3 |= USART_CR3_DMAR;
-	husart->instance->CR1 |= USART_CR1_IDLEIE;
  
+	/* Enable the USART IDLE Interrupt */
+	husart->instance->CR1 |= USART_CR1_IDLEIE;
 }
  
 static void USART_TX_DMA_Config(usart_handle_t *husart){
+	/* Disable DMA on TX Channel */ 
 	husart->tx_dma->CCR &= ~DMA_CCR_EN;
  
+	/* Set the corresponding DMA Channel to work in USARTX_TX mode */
 	DMA1_CSELR->CSELR &= ~(0xFU << dma_channel_to_cselr_pos(husart->tx_dma));
 	DMA1_CSELR->CSELR |= (0x2U<< dma_channel_to_cselr_pos(husart->tx_dma));
  
-	husart->tx_dma->CCR &= ~(DMA_CCR_MEM2MEM | DMA_CCR_PSIZE);
-	husart->tx_dma->CCR |= (DMA_CCR_MINC | DMA_CCR_DIR | DMA_CCR_TCIE);
+	/* Disable memory-to-memory mode and set data size of each DMA transfer to 8 bits */
+	husart->tx_dma->CCR &= ~(DMA_CCR_MEM2MEM | DMA_CCR_PSIZE| DMA_CCR_MSIZE);
+ 
+	/* Enable memory increment mode and set the data transfer direction to Read from Memory */
+	husart->tx_dma->CCR |= (DMA_CCR_MINC | DMA_CCR_DIR);
+ 
+	/* Set the DMA Peripheral Address to USARTX Transmit Data Register */ 
 	husart->tx_dma->CPAR = (uint32_t)&husart->instance->TDR;
  
+	/* Enable the DMA Transfer Complete Interrupt */
+	husart->tx_dma->CCR |= DMA_CCR_TCIE;
+ 
+	/* Enable USARTX Transmission DMA Mode */
 	husart->instance->CR3 |= USART_CR3_DMAT;
  
 	NVIC_EnableIRQ(husart->tx_dma_irq);
@@ -231,10 +312,12 @@ static void USART_TX_DMA_Config(usart_handle_t *husart){
  
 static void USART_DMA_Init(usart_handle_t * husart){
 	USART_Init(husart->instance);
-
+ 
+	/* Enable DMA1 Clock */
 	RCC->AHB1ENR |= RCC_AHB1ENR_DMA1EN;
 	(void)RCC->AHB1ENR;
  
+	/* Configure TX and RX Pins for DMA usage */
 	USART_TX_DMA_Config(husart);
 	USART_RX_DMA_Config(husart);
 }
@@ -242,44 +325,43 @@ static void USART_DMA_Init(usart_handle_t * husart){
 //--- IRQ Handlers ------------------------------
  
 static void USART_IRQ_Handler(usart_handle_t * husart) {
-	// TX Empty
-	if((husart->instance->ISR & USART_ISR_TXE) && 
-	   (husart->instance->CR1 & USART_CR1_TXEIE)) {
+	/* USART Transmit Data Regiser Empty interrupt occurred ------------*/
+	if((husart->instance->ISR & USART_ISR_TXE) && (husart->instance->CR1 & USART_CR1_TXEIE)) {
 		if(husart->tx_index < husart->tx_size) {
+			/* Load next byte into TDR and increment the index */
 			husart->instance->TDR = husart->tx_buffer[husart->tx_index++];
 		}
 		else{
+			/* No data left to transfer: disable USART TXE interrupt and enable TC interrupt */
 			husart->instance->CR1 &= ~USART_CR1_TXEIE;
 			husart->instance->CR1 |= USART_CR1_TCIE; 
 		}
 	}
  
-	// TC
-	if((husart->instance->ISR & USART_ISR_TC) && 
-	   (husart->instance->CR1 & USART_CR1_TCIE)) {
- 
- 
+	/* USART Transfer Complete interrupt interrupt occurred ------------*/
+	if((husart->instance->ISR & USART_ISR_TC) && (husart->instance->CR1 & USART_CR1_TCIE)) {
 		husart->instance->ICR = USART_ICR_TCCF;
 		husart->instance->CR1 &= ~USART_CR1_TCIE; 
 		husart->tx_state = USART_STATE_READY;
 	}
  
-	// RX Not Empty
-	if((husart->instance->ISR & USART_ISR_RXNE) &&
-	   (husart->instance->CR1 & USART_CR1_RXNEIE)){
- 
+	/* USART Receive Data Register Not Empty interrupt occurred --------*/
+	if((husart->instance->ISR & USART_ISR_RXNE) && (husart->instance->CR1 & USART_CR1_RXNEIE)){
 		uint32_t next_head = (husart->rx_head+1) % husart->rx_size;
  
+		/* Check whether there is space available in the RX Buffer */
 		if(next_head != husart->rx_tail) {
+			/* Read incoming data */
 			husart->rx_buffer[husart->rx_head] = husart->instance->RDR;
 			husart->rx_head = next_head;
 		} else {
+			/* RX Buffer is full: incoming data is discarded and lost bytes counter incremented */
 			(void)husart->instance->RDR;
 			husart->rx_lost_bytes++;	
 		}
 	}
  
-	// IDLE line
+	/* USART IDLE interrupt occurred -----------------------------------*/ 
 	if((husart->instance->ISR & USART_ISR_IDLE) && 
 	   (husart->instance->CR1 & USART_CR1_IDLEIE)){
  
@@ -289,47 +371,57 @@ static void USART_IRQ_Handler(usart_handle_t * husart) {
 }
  
 static void DMA1_IRQHandler(usart_handle_t*husart) {
-	//Transfer Complete
 	uint32_t tx_channel = dma_channel_to_number(husart->tx_dma);
  
+	/* Check whether the DMA Transfer Complete interrupt flag for the specific channel is set */
 	if(DMA1->ISR & (1U << ((tx_channel -1U)*4U + 1U))){
+
+		/* Clear the DMA1 Channel X Transfer Complete interrupt flag */
 		DMA1->IFCR = (1U << ((tx_channel -1U)*4U + 1U));
+
+		/* Disable the DMA TX Channel */
 		husart->tx_dma->CCR &= ~(DMA_CCR_EN);
+
+		/* Enable the USART Transmission Complete interrupt */
 		husart->instance->CR1 |= USART_CR1_TCIE;
 	}
  
 }
  
 void DMA1_CH4_IRQHandler(void) {
-	DMA1_IRQHandler(usart_table[0]);
+	DMA1_IRQHandler(usart_table[USART1_TABLE_POS]);
 }
  
 void DMA1_CH7_IRQHandler(void) {
-	DMA1_IRQHandler(usart_table[1]);
+	DMA1_IRQHandler(usart_table[USART2_TABLE_POS]);
 }
  
 void DMA1_CH2_IRQHandler(void) {
-	DMA1_IRQHandler(usart_table[2]);
+	DMA1_IRQHandler(usart_table[USART3_TABLE_POS]);
 }
  
 void USART1_IRQHandler(void){
-	USART_IRQ_Handler(usart_table[0]); 
+	USART_IRQ_Handler(usart_table[USART1_TABLE_POS]); 
 }
  
 void USART2_IRQHandler(void){ 
-	USART_IRQ_Handler(usart_table[1]); 
+	USART_IRQ_Handler(usart_table[USART2_TABLE_POS]); 
 }
  
 void USART3_IRQHandler(void){
-	USART_IRQ_Handler(usart_table[2]); 
+	USART_IRQ_Handler(usart_table[USART3_TABLE_POS]); 
 }
+
+//--- Main Entry --------------------------------
+
+usart_status_t USART_Handle_Init(usart_handle_t*husart, USART_TypeDef* instance, usart_mode_t mode, uint8_t* rx_buffer, uint32_t rx_size)  {
  
-void DMA1_CH6_IRQHandler(){
-	while(1);
-}
+	/* Check the validity of given parameters */
+	if(husart == (void*)0 || rx_buffer == (void*)0 || instance == (void*)0) {
+		return USART_ERROR_INVALID_PARAM;	
+	}
  
- 
-void USART_Handle_Init(usart_handle_t*husart, USART_TypeDef* instance, usart_mode_t mode, uint8_t* rx_buffer, uint32_t rx_size)  {
+	/* Set the USART communication parameters */
 	husart->instance = instance;
 	husart->rx_buffer = rx_buffer;
 	husart->rx_size = rx_size;
@@ -356,6 +448,8 @@ void USART_Handle_Init(usart_handle_t*husart, USART_TypeDef* instance, usart_mod
 		husart->rx_dma = DMA1_Channel3;
 		husart->tx_dma_irq = DMA1_Channel2_IRQn; 
 	}
+ 
+	/* Initiiate USART based on provided mode */
 	if(mode == USART_MODE_POLLING) {
 		USART_Init(instance);
 	}
@@ -365,5 +459,6 @@ void USART_Handle_Init(usart_handle_t*husart, USART_TypeDef* instance, usart_mod
 	else if(mode == USART_MODE_DMA){
 		USART_DMA_Init(husart);		
 	}
+	return USART_OK;
 }
 

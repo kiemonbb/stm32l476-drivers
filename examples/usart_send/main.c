@@ -10,10 +10,10 @@ void main(void){
 	const uint8_t * text = "USART2\r\n";
 	uint8_t rx_buffer[256];
 	usart_handle_t usart2;
-	USART_Handle_Init(&usart2, USART2, USART_MODE_POLLING, rx_buffer , 256);
+	USART_Handle_Init(&usart2, USART2, USART_MODE_DMA, rx_buffer , 256);
 
 	while(1) {
-		USART_Transmit(&usart2, text, 8, 100);
+		USART_Transmit_DMA(&usart2, text, 8);
 		delay_ms(1000);
 	}
 }
