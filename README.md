@@ -1,9 +1,13 @@
 # STM32L476xx Peripheral Library
-
-![MCU](https://img.shields.io/badge/MCU-STM32L476xx-03234B?style=flat-square&logo=stmicroelectronics&logoColor=white)
-![Architecture](https://img.shields.io/badge/Architecture-ARM%20Cortex--M4-00979D?style=flat-square)
-![Toolchain](https://img.shields.io/badge/Toolchain-arm--none--eabi--gcc-A22846?style=flat-square&logo=gnu&logoColor=white)
-![Language](https://img.shields.io/badge/Language-C-A8B9CC?style=flat-square&logo=c&logoColor=white)
+<p align="center">
+<img src="https://img.shields.io/badge/MCU-STM32L476xx-03234B?style=flat-square&logo=stmicroelectronics&logoColor=white"/>
+<img src="https://img.shields.io/badge/Architecture-ARM%20Cortex--M4-00979D?style=flat-square"/>
+<img src="https://img.shields.io/badge/Toolchain-arm--none--eabi--gcc-A22846?style=flat-square&logo=gnu&logoColor=white"/>
+<img src="https://img.shields.io/badge/Language-C-A8B9CC?style=flat-square&logo=c&logoColor=white"/>
+</p>
+<p align="center">
+<img src="plytka.png" alt="MCU" width="100"/>
+</p>
 
 ## Overview
 
