@@ -1,4 +1,7 @@
-# STM32L476xx Peripheral Library
+
+<h1 align="center">
+	STM32L476xx Peripheral Library
+</h1>
 <p align="center">
 <img src="https://img.shields.io/badge/MCU-STM32L476xx-03234B?style=flat-square&logo=stmicroelectronics&logoColor=white"/>
 <img src="https://img.shields.io/badge/Architecture-ARM%20Cortex--M4-00979D?style=flat-square"/>
