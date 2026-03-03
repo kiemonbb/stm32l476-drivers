@@ -67,6 +67,10 @@ static void USART_Init(USART_TypeDef* instance) {
 	/* Set the Baud Rate (TODO: Take prescalers into account) */
 	instance->BRR = (uint32_t)(SystemCoreClock/115200);
  
+	/* Enable the USART Parity Error (PCE) and Error (EIE) interrupts */
+	instance->CR1 |= USART_CR1_PEIE;
+	instance->CR3 |= USART_CR3_EIE;
+
 	/* Enable the USART Peripheral */
 	instance->CR1 |= USART_CR1_UE;
  
@@ -274,7 +278,7 @@ static void USART_RX_DMA_Config(usart_handle_t* husart) {
 	/* Enable Memory Increment Mode and Circular Mode */
 	husart->rx_dma->CCR |= (DMA_CCR_MINC | DMA_CCR_CIRC);
  
-	/* Enable DMA on TX Channel */
+	/* Enable DMA on RX Channel */
 	husart->rx_dma->CCR |= DMA_CCR_EN;
  
 	/* Enable USARTX Receiver DMA Mode */
@@ -325,6 +329,48 @@ static void USART_DMA_Init(usart_handle_t * husart){
 //--- IRQ Handlers ------------------------------
  
 static void USART_IRQ_Handler(usart_handle_t * husart) {
+	uint8_t byte_lost = 0;
+
+	if(!(husart->instance->ISR & (USART_ISR_ORE | USART_ISR_PE | USART_ISR_NE | USART_ISR_FE))) {
+		husart->error = USART_OK;
+	}
+
+	/* USART Over-run Error interrupt occurred -------------------------*/
+	if(husart->instance->ISR & USART_ISR_ORE) {
+		husart->instance->ICR = USART_ICR_ORECF;
+		husart->error = USART_ERROR_ORE;
+		byte_lost=1;
+	}
+
+	/* USART Parity Error interrupt occurred -------------------------*/
+	if(husart->instance->ISR & USART_ISR_PE) {
+		husart->instance->ICR = USART_ICR_PECF;
+		husart->error = USART_ERROR_PE;
+		byte_lost=1;
+	}
+
+	/* USART Noise Error interrupt occurred -------------------------*/
+	if(husart->instance->ISR & USART_ISR_NE) {
+		husart->instance->ICR = USART_ICR_NECF;
+
+		/* Discard possibly invalid data */
+		(void)husart->instance->RDR;
+
+		husart->error = USART_ERROR_NE;
+		byte_lost=1;
+	}
+
+	/* USART Frame Error interrupt occurred -------------------------*/
+	if(husart->instance->ISR & USART_ISR_FE) {
+		husart->instance->ICR = USART_ICR_FECF;
+
+		/* Discard invalid data */
+		(void)husart->instance->RDR;
+
+		husart->error = USART_ERROR_FE;
+		byte_lost=1;
+	}
+
 	/* USART Transmit Data Regiser Empty interrupt occurred ------------*/
 	if((husart->instance->ISR & USART_ISR_TXE) && (husart->instance->CR1 & USART_CR1_TXEIE)) {
 		if(husart->tx_index < husart->tx_size) {
@@ -338,10 +384,11 @@ static void USART_IRQ_Handler(usart_handle_t * husart) {
 		}
 	}
  
-	/* USART Transfer Complete interrupt interrupt occurred ------------*/
+	/* USART Transfer Complete interrupt occurred ------------*/
 	if((husart->instance->ISR & USART_ISR_TC) && (husart->instance->CR1 & USART_CR1_TCIE)) {
 		husart->instance->ICR = USART_ICR_TCCF;
 		husart->instance->CR1 &= ~USART_CR1_TCIE; 
+		husart->error = USART_OK;
 		husart->tx_state = USART_STATE_READY;
 	}
  
@@ -355,9 +402,9 @@ static void USART_IRQ_Handler(usart_handle_t * husart) {
 			husart->rx_buffer[husart->rx_head] = husart->instance->RDR;
 			husart->rx_head = next_head;
 		} else {
-			/* RX Buffer is full: incoming data is discarded and lost bytes counter incremented */
+			/* RX Buffer is full: incoming data is discarded and lost bytes counter must be incremented */
 			(void)husart->instance->RDR;
-			husart->rx_lost_bytes++;	
+			byte_lost=1;
 		}
 	}
  
@@ -367,6 +414,11 @@ static void USART_IRQ_Handler(usart_handle_t * husart) {
  
 		husart->instance->ICR = USART_ICR_IDLECF;
 		husart->rx_state = USART_STATE_READY;
+	}
+
+	/* If byte was lost increment the counter */
+	if(byte_lost) {
+		husart->rx_lost_bytes++;
 	}
 }
  
@@ -431,19 +483,21 @@ usart_status_t USART_Handle_Init(usart_handle_t*husart, USART_TypeDef* instance,
 	husart->rx_state = USART_STATE_READY;
 	husart->rx_lost_bytes = 0;
 	husart->tx_state = USART_STATE_READY;
+
+	husart->error = USART_OK;
 	husart->mode = mode;
 	if(instance == USART1) {
-		usart_table[0] = husart;
+		usart_table[USART1_TABLE_POS] = husart;
 		husart->tx_dma = DMA1_Channel4;
 		husart->rx_dma = DMA1_Channel5;
 		husart->tx_dma_irq = DMA1_Channel4_IRQn; 
 	} else if(instance == USART2) {
-		usart_table[1] = husart;
+		usart_table[USART2_TABLE_POS] = husart;
 		husart->tx_dma = DMA1_Channel7;
 		husart->rx_dma = DMA1_Channel6;
 		husart->tx_dma_irq = DMA1_Channel7_IRQn; 
 	} else if(instance == USART3) {
-		usart_table[2] = husart;
+		usart_table[USART3_TABLE_POS] = husart;
 		husart->tx_dma = DMA1_Channel2;
 		husart->rx_dma = DMA1_Channel3;
 		husart->tx_dma_irq = DMA1_Channel2_IRQn; 

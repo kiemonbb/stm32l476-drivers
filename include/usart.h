@@ -26,7 +26,13 @@ typedef enum {
 	USART_OK = 0,
 	USART_ERROR_INVALID_PARAM,
 	USART_ERROR_TIMEOUT,
-	USART_ERROR_BUSY
+	USART_ERROR_BUSY,
+
+	USART_ERROR_PE,
+	USART_ERROR_FE,
+	USART_ERROR_ORE,
+	USART_ERROR_NE
+
 } usart_status_t;
  
 typedef struct{
@@ -44,6 +50,8 @@ typedef struct{
 	volatile uint32_t rx_tail;
 	volatile uint32_t rx_lost_bytes;
 	volatile usart_state_t rx_state;
+
+	volatile usart_status_t error;
  
 	DMA_Channel_TypeDef* rx_dma;
 	DMA_Channel_TypeDef* tx_dma;
