@@ -20,12 +20,12 @@ A lightweight bare-metal peripheral drivers library for **STM32L476xx** built wi
 
 ### GPIO Blink
 ```c
-	GPIO_Enable_Output(GPIOA,5,GPIO_OTYPE_PUSH_PULL,GPIO_PULL_UP,GPIO_SPEED_LOW);
+GPIO_Enable_Output(GPIOA,5,GPIO_OTYPE_PUSH_PULL,GPIO_PULL_UP,GPIO_SPEED_LOW);
 
-	while(1) {
-		GPIO_Toggle_Pin(GPIOA, 5);
-		delay_ms(1000);
-	}
+while(1) {
+	GPIO_Toggle_Pin(GPIOA, 5);
+	delay_ms(1000);
+}
 
 ```
 Full example: [examples/gpio_blink/](examples/gpio_blink/)
@@ -42,16 +42,44 @@ USART_Transmit_DMA(&husart2, msg, sizeof(msg));
 uint8_t data[8];
 uint32_t received = USART_Read_DMA(&husart2, data, sizeof(data));
 ```
+
 Full example: [examples/usart_send/](examples/usart_send/)
+
+### SPI loopback
+```c
+uint8_t usart_rx_buffer[256];
+usart_handle_t usart2;
+
+uint8_t tx[] = "ABCD\r\n";
+uint8_t rx[6] = {0};
+spi_handle_t spi1;
+spi_config_t cfg = {
+	.instance = SPI1,
+	.baud = SPI_BAUD_DIV_2,
+	.clock_mode = SPI_CLOCK_MODE_0,
+	.mode = SPI_MODE_POLLING,
+	.data_size = SPI_DATASIZE_8BIT,
+};
+
+SPI_Init(&spi1, &cfg);		
+USART_Handle_Init(&usart2, USART2, USART_MODE_POLLING, usart_rx_buffer , 256);
+
+SPI_TransmitReceive8(&spi1,tx, rx, 6,100);
+USART_Transmit(&usart2, rx, 6, 100);
+
+```
+Full example: [examples/spi_test/](examples/spi_test/)
 
 ## Features
 
-| Peripheral | Status | Notes |
-|:-----------|:------:|-------|
-| GPIO | ✅ Ready | input, output, af|
-| USART | ✅ Ready | polling, interrupt, DMA |
-| SysTick | ✅ Ready | 1ms tick, delay support |
-| System Init | ✅ Ready | Clock config, startup code |
+| Peripheral | Notes |
+|:-----------|-------|
+| GPIO | input, output, af|
+| USART | polling, interrupt, DMA |
+| SPI | polling |
+| SysTick  | 1ms tick, delay support |
+| System Init | Clock config, startup code |
+
 
 ## Requirements
 * arm-none-eabi-gcc
