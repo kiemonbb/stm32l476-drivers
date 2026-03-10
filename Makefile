@@ -6,6 +6,7 @@ CORE_SRC = core/system_init.c core/systick.c
 
 CMSIS_OBJ = cmsis/device/startup_stm32l476xx.o cmsis/device/system_stm32l4xx.o
 GPIO_OBJ = src/gpio.o
+
 USART_OBJ = src/usart.o
 CORE_OBJ = core/system_init.o core/systick.o
 
@@ -45,7 +46,17 @@ flash-%: %.elf
 	$(PROGRAMMER) $(PROGRAMMER_FLAGS) -c "program $< verify reset exit"
 
 clean:
-	rm -f $(CMSIS_OBJ) $(GPIO_OBJ) $(USART_OBJ) $(CORE_OBJ) $(wildcard examples/**/main.o) *.elf *.bin
+	rm -f $(CMSIS_OBJ) $(GPIO_OBJ) $(USART_OBJ) $(CORE_OBJ) $(SPI_OBJ) $(wildcard examples/**/main.o) *.elf *.bin
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
+
+
+SPI_OBJ = src/spi.o
+
+spi_test: spi_test.elf
+
+spi_test.elf: $(CMSIS_OBJ) $(GPIO_OBJ) $(CORE_OBJ) $(SPI_OBJ) $(USART_OBJ) examples/spi_test/main.o
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
+
+
