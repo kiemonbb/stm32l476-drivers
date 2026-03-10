@@ -79,24 +79,14 @@ typedef struct {
 /* API Functions */
  
 spi_status_t SPI_Init(spi_handle_t *hspi, spi_config_t *config);
+
 spi_status_t SPI_TransmitReceive(spi_handle_t *hspi, const uint8_t *tx,
                                  uint8_t *rx, uint32_t size,
                                  uint32_t timeout_ms);
+
 spi_status_t SPI_Transmit(spi_handle_t *hspi, const uint8_t *tx, uint32_t size,
                           uint32_t timeout_ms);
-spi_status_t SPI_Receive(spi_handle_t *hspi, uint8_t *rx, uint32_t size,
-                         uint32_t timeout_ms);
- 
-spi_status_t SPI_TransmitReceive_IT(spi_handle_t *hspi, const uint8_t *tx,
-                                    uint8_t *rx, uint32_t size);
- 
-spi_status_t SPI_TransmitReceive_DMA(spi_handle_t *hspi, const uint8_t *tx,
-                                     uint8_t *rx, uint32_t size);
-spi_status_t SPI_TransmitReceive(spi_handle_t *hspi, const uint8_t *tx,
-                                 uint8_t *rx, uint32_t size,
-                                 uint32_t timeout_ms);
-spi_status_t SPI_Transmit(spi_handle_t *hspi, const uint8_t *tx, uint32_t size,
-                          uint32_t timeout_ms);
+
 spi_status_t SPI_Receive(spi_handle_t *hspi, uint8_t *rx, uint32_t size,
                          uint32_t timeout_ms);
  
