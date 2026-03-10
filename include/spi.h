@@ -22,10 +22,10 @@ typedef enum {
 } spi_baud_divider_t;
  
 typedef enum {
-  SPI_MODE_0 = 0L, // CPOL=0 CPHA=0
-  SPI_MODE_1 = 1L, // CPOL=0 CPHA=1
-  SPI_MODE_2 = 2L, // CPOL=1 CPHA=0
-  SPI_MODE_3 = 3L, // CPOL=1 CPHA=1
+  SPI_CLOCK_MODE_0 = 0L, // CPOL=0 CPHA=0
+  SPI_CLOCK_MODE_1 = 1L, // CPOL=0 CPHA=1
+  SPI_CLOCK_MODE_2 = 2L, // CPOL=1 CPHA=0
+  SPI_CLOCK_MODE_3 = 3L, // CPOL=1 CPHA=1
 } spi_clock_mode_t;
  
 typedef enum {
@@ -80,8 +80,12 @@ typedef struct {
  
 spi_status_t SPI_Init(spi_handle_t *hspi, spi_config_t *config);
 
-spi_status_t SPI_TransmitReceive(spi_handle_t *hspi, const uint8_t *tx,
+spi_status_t SPI_TransmitReceive8(spi_handle_t *hspi, const uint8_t *tx,
                                  uint8_t *rx, uint32_t size,
+                                 uint32_t timeout_ms);
+
+spi_status_t SPI_TransmitReceive16(spi_handle_t *hspi, const uint16_t *tx,
+                                 uint16_t *rx, uint32_t size,
                                  uint32_t timeout_ms);
 
 spi_status_t SPI_Transmit(spi_handle_t *hspi, const uint8_t *tx, uint32_t size,
