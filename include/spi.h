@@ -22,10 +22,10 @@ typedef enum {
 } spi_baud_divider_t;
  
 typedef enum {
-  SPI_CLOCK_MODE_0 = 0L, // CPOL=0 CPHA=0
-  SPI_CLOCK_MODE_1 = 1L, // CPOL=0 CPHA=1
-  SPI_CLOCK_MODE_2 = 2L, // CPOL=1 CPHA=0
-  SPI_CLOCK_MODE_3 = 3L, // CPOL=1 CPHA=1
+  SPI_CLOCK_MODE_0 = 0, // CPOL=0 CPHA=0
+  SPI_CLOCK_MODE_1 = SPI_CR1_CPHA, // CPOL=0 CPHA=1
+  SPI_CLOCK_MODE_2 = SPI_CR1_CPOL, // CPOL=1 CPHA=0
+  SPI_CLOCK_MODE_3 = SPI_CR1_CPOL | SPI_CR1_CPHA, // CPOL=1 CPHA=1
 } spi_clock_mode_t;
  
 typedef enum {
@@ -59,11 +59,11 @@ typedef struct {
   spi_baud_divider_t baud_divider;
   spi_datasize_t data_size;
  
-  const uint8_t *tx_buffer;
+  const void *tx_buffer;
   uint32_t tx_size;
   volatile uint32_t tx_index;
  
-  uint8_t *rx_buffer;
+  void* *rx_buffer;
   uint32_t rx_size;
   volatile uint32_t rx_index;
  

@@ -61,6 +61,7 @@ static void SPI_Poll_Init(spi_handle_t*hspi){
 	hspi->instance->CR1 |= (hspi->baud_divider << SPI_CR1_BR_Pos);
  
 	hspi->instance->CR1 |= (hspi->clock_mode | SPI_CR1_SSM | SPI_CR1_SSI | SPI_CR1_MSTR);
+
  
 	hspi->instance->CR1 &= ~(SPI_CR1_BIDIMODE | SPI_CR1_RXONLY | SPI_CR1_LSBFIRST | SPI_CR1_CRCEN);
  
@@ -68,15 +69,18 @@ static void SPI_Poll_Init(spi_handle_t*hspi){
 	hspi->instance->CR2 |= (hspi->data_size << SPI_CR2_DS_Pos); 
  
 	hspi->instance->CR2 &= ~SPI_CR2_FRF;
+
+	if (hspi->data_size == SPI_DATASIZE_8BIT) {
+		hspi->instance->CR2 |= SPI_CR2_FRXTH;
+	}
+	else {
+	    hspi->instance->CR2 &= ~SPI_CR2_FRXTH;  
+	}
  
 	//hspi->instance->CR2 |= (SPI_CR2_ERRIE | SPI_CR2_RXNEIE | SPI_CR2_TXEIE);
 
 	hspi->instance->CR1 |= SPI_CR1_SPE;
 }
-
-static void SPI_IT_Init(spi_handle_t*hspi);
-
-static void SPI_DMA_Init(spi_handle_t*hspi);
 
 static spi_status_t SPI_Bind_DMA(spi_handle_t *hspi) {
     if (hspi->instance == SPI1) {
@@ -114,6 +118,110 @@ static void SPI_Apply_Config(spi_handle_t *hspi, spi_config_t *config) {
 	hspi->mode = config->mode;
 	hspi->error = SPI_OK;
 }
+
+spi_status_t SPI_TransmitReceive8(spi_handle_t *hspi, const uint8_t *tx, uint8_t *rx, uint32_t size, uint32_t timeout_ms){
+	if(hspi->data_size != SPI_DATASIZE_8BIT) return SPI_ERROR_INVALID_PARAM;
+
+	if(hspi == (void*)0 || rx == (void*)0 || tx == (void*)0 || size == 0){
+		return SPI_ERROR_INVALID_PARAM;
+	}
+
+	hspi->state = SPI_STATE_BUSY;
+
+	uint32_t deadline = systick_ms + timeout_ms;
+
+	for(uint32_t i = 0; i < size; i++){
+		while(!(hspi->instance->SR & SPI_SR_TXE)) {
+			if(timeout_ms == SPI_NO_DELAY){
+				hspi->state = SPI_STATE_READY;
+				return SPI_ERROR_TIMEOUT;
+			}	
+			 if(timeout_ms != SPI_MAX_DELAY && systick_ms >= deadline) {
+                hspi->state = SPI_STATE_READY;
+                return SPI_ERROR_TIMEOUT;
+            }
+		}
+		*(volatile uint8_t *)&hspi->instance->DR = tx[i];
+
+		while(!(hspi->instance->SR & SPI_SR_RXNE)) {
+			if(timeout_ms == SPI_NO_DELAY){
+				hspi->state = SPI_STATE_READY;
+				return SPI_ERROR_TIMEOUT;
+			}	
+			 if(timeout_ms != SPI_MAX_DELAY && systick_ms >= deadline) {
+                hspi->state = SPI_STATE_READY;
+                return SPI_ERROR_TIMEOUT;
+            }
+		}
+		rx[i] = *(volatile uint8_t *)&hspi->instance->DR;
+	}
+
+		while (hspi->instance->SR & SPI_SR_BSY) {
+			if(timeout_ms == SPI_NO_DELAY){
+				hspi->state = SPI_STATE_READY;
+				return SPI_ERROR_TIMEOUT;
+			}	
+			 if(timeout_ms != SPI_MAX_DELAY && systick_ms >= deadline) {
+                hspi->state = SPI_STATE_READY;
+                return SPI_ERROR_TIMEOUT;
+            }
+		}
+		
+	hspi->state = SPI_STATE_READY;
+	return SPI_OK;
+}
+
+spi_status_t SPI_TransmitReceive16(spi_handle_t *hspi, const uint16_t *tx, uint16_t *rx, uint32_t size, uint32_t timeout_ms){
+	if(hspi->data_size != SPI_DATASIZE_16BIT) return SPI_ERROR_INVALID_PARAM;
+
+	if(hspi == (void*)0 || rx == (void*)0 || tx == (void*)0 || size == 0){
+		return SPI_ERROR_INVALID_PARAM;
+	}
+
+	hspi->state = SPI_STATE_BUSY;
+
+	uint32_t deadline = systick_ms + timeout_ms;
+
+	for(uint32_t i = 0; i < size; i++){
+		while(!(hspi->instance->SR & SPI_SR_TXE)) {
+			if(timeout_ms == SPI_NO_DELAY){
+				hspi->state = SPI_STATE_READY;
+				return SPI_ERROR_TIMEOUT;
+			}	
+			 if(timeout_ms != SPI_MAX_DELAY && systick_ms >= deadline) {
+                hspi->state = SPI_STATE_READY;
+                return SPI_ERROR_TIMEOUT;
+            }
+		}
+		*(volatile uint16_t *)&hspi->instance->DR = tx[i];
+
+		while(!(hspi->instance->SR & SPI_SR_RXNE)) {
+			if(timeout_ms == SPI_NO_DELAY){
+				hspi->state = SPI_STATE_READY;
+				return SPI_ERROR_TIMEOUT;
+			}	
+			 if(timeout_ms != SPI_MAX_DELAY && systick_ms >= deadline) {
+                hspi->state = SPI_STATE_READY;
+                return SPI_ERROR_TIMEOUT;
+            }
+		}
+		rx[i] = *(volatile uint16_t *)&hspi->instance->DR;
+	}
+
+		while (hspi->instance->SR & SPI_SR_BSY) {
+			if(timeout_ms == SPI_NO_DELAY){
+				hspi->state = SPI_STATE_READY;
+				return SPI_ERROR_TIMEOUT;
+			}	
+			 if(timeout_ms != SPI_MAX_DELAY && systick_ms >= deadline) {
+                hspi->state = SPI_STATE_READY;
+                return SPI_ERROR_TIMEOUT;
+            }
+		}
+		
+	hspi->state = SPI_STATE_READY;
+	return SPI_OK;
+}
  
 spi_status_t SPI_Init(spi_handle_t *hspi, spi_config_t *config){
 	if(hspi == (void*)0 || config == (void*)0){
@@ -126,8 +234,8 @@ spi_status_t SPI_Init(spi_handle_t *hspi, spi_config_t *config){
 	if(status != SPI_OK) return status; 
  
 	if(hspi->mode == SPI_MODE_POLLING)			SPI_Poll_Init(hspi);
-	else if(hspi->mode == SPI_MODE_INTERRUPT)	SPI_IT_Init(hspi);
-	else if(hspi->mode == SPI_MODE_DMA)			SPI_DMA_Init(hspi);
+	//else if(hspi->mode == SPI_MODE_INTERRUPT)	SPI_IT_Init(hspi);
+	//else if(hspi->mode == SPI_MODE_DMA)			SPI_DMA_Init(hspi);
  
 	return SPI_OK;
 }
