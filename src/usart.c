@@ -50,8 +50,23 @@ static void USART_Config(USART_TypeDef* instance) {
 	else if(instance == USART2) USART2_Config();
 	else if(instance == USART3) USART3_Config();
 }
+
+static void USART_Apply_Config(usart_handle_t *husart, usart_config_t *config) {
+	husart->instance = config->instance;
+	husart->rx_buffer = config->rx_buffer;
+	husart->rx_size = config->rx_size;
+	husart->rx_head = 0;
+	husart->rx_dma_head = 0;
+	husart->rx_tail = 0;
+	husart->rx_state = USART_STATE_READY;
+	husart->rx_lost_bytes = 0;
+	husart->tx_state = USART_STATE_READY;
+
+	husart->error = USART_OK;
+	husart->mode = config->mode;
+}
  
-static void USART_Init(USART_TypeDef* instance) {
+static void USART_Poll_Init(USART_TypeDef* instance) {
 	/* Init the low level hardware: GPIO, CLOCK */
 	USART_Config(instance);
  
@@ -79,9 +94,9 @@ static void USART_Init(USART_TypeDef* instance) {
 	while(!(instance->ISR & USART_ISR_TEACK));
 	while(!(instance->ISR & USART_ISR_REACK));
 }
- 
+
 static void USART_IT_Init(USART_TypeDef*instance) {
-	USART_Init(instance);
+	USART_Poll_Init(instance);
  
 	/* Enable the USART Data Register Not Empty Interrupt */
 	instance->CR1 |= USART_CR1_RXNEIE;
@@ -315,7 +330,7 @@ static void USART_TX_DMA_Config(usart_handle_t *husart){
 }
  
 static void USART_DMA_Init(usart_handle_t * husart){
-	USART_Init(husart->instance);
+	USART_Poll_Init(husart->instance);
  
 	/* Enable DMA1 Clock */
 	RCC->AHB1ENR |= RCC_AHB1ENR_DMA1EN;
@@ -326,6 +341,29 @@ static void USART_DMA_Init(usart_handle_t * husart){
 	USART_RX_DMA_Config(husart);
 }
  
+static usart_status_t USART_Bind_DMA(usart_handle_t *husart) {
+	if(husart->instance == USART1) {
+		usart_table[USART1_TABLE_POS] = husart;
+		husart->tx_dma = DMA1_Channel4;
+		husart->rx_dma = DMA1_Channel5;
+		husart->tx_dma_irq = DMA1_Channel4_IRQn; 
+	} else if(husart->instance == USART2) {
+		usart_table[USART2_TABLE_POS] = husart;
+		husart->tx_dma = DMA1_Channel7;
+		husart->rx_dma = DMA1_Channel6;
+		husart->tx_dma_irq = DMA1_Channel7_IRQn; 
+	} else if(husart->instance == USART3) {
+		usart_table[USART3_TABLE_POS] = husart;
+		husart->tx_dma = DMA1_Channel2;
+		husart->rx_dma = DMA1_Channel3;
+		husart->tx_dma_irq = DMA1_Channel2_IRQn; 
+	}
+	else {
+		return USART_ERROR_INVALID_PARAM;
+	}
+	return USART_OK;
+}
+
 //--- IRQ Handlers ------------------------------
  
 static void USART_IRQ_Handler(usart_handle_t * husart) {
@@ -466,53 +504,25 @@ void USART3_IRQHandler(void){
 
 //--- Main Entry --------------------------------
 
-usart_status_t USART_Handle_Init(usart_handle_t*husart, USART_TypeDef* instance, usart_mode_t mode, uint8_t* rx_buffer, uint32_t rx_size)  {
+usart_status_t USART_Init(usart_handle_t*husart, usart_config_t * config)  {
  
 	/* Check the validity of given parameters */
-	if(husart == (void*)0 || rx_buffer == (void*)0 || instance == (void*)0) {
+	if(husart == (void*)0 || config == (void*)0) {
 		return USART_ERROR_INVALID_PARAM;	
 	}
- 
-	/* Set the USART communication parameters */
-	husart->instance = instance;
-	husart->rx_buffer = rx_buffer;
-	husart->rx_size = rx_size;
-	husart->rx_head = 0;
-	husart->rx_dma_head = 0;
-	husart->rx_tail = 0;
-	husart->rx_state = USART_STATE_READY;
-	husart->rx_lost_bytes = 0;
-	husart->tx_state = USART_STATE_READY;
 
-	husart->error = USART_OK;
-	husart->mode = mode;
-	if(instance == USART1) {
-		usart_table[USART1_TABLE_POS] = husart;
-		husart->tx_dma = DMA1_Channel4;
-		husart->rx_dma = DMA1_Channel5;
-		husart->tx_dma_irq = DMA1_Channel4_IRQn; 
-	} else if(instance == USART2) {
-		usart_table[USART2_TABLE_POS] = husart;
-		husart->tx_dma = DMA1_Channel7;
-		husart->rx_dma = DMA1_Channel6;
-		husart->tx_dma_irq = DMA1_Channel7_IRQn; 
-	} else if(instance == USART3) {
-		usart_table[USART3_TABLE_POS] = husart;
-		husart->tx_dma = DMA1_Channel2;
-		husart->rx_dma = DMA1_Channel3;
-		husart->tx_dma_irq = DMA1_Channel2_IRQn; 
-	}
+	/* Set the USART communication parameters */
+	USART_Apply_Config(husart,config);
+
+	/* Set the USART handle parameters neccessary for DMA transfer */
+	usart_status_t status = USART_Bind_DMA(husart);
+	if(status != USART_OK) return status;
  
 	/* Initiiate USART based on provided mode */
-	if(mode == USART_MODE_POLLING) {
-		USART_Init(instance);
-	}
-	else if(mode == USART_MODE_INTERRUPT) {
-		USART_IT_Init(instance);
-	}
-	else if(mode == USART_MODE_DMA){
-		USART_DMA_Init(husart);		
-	}
+	if(husart->mode == USART_MODE_POLLING)				USART_Poll_Init(husart->instance);
+	else if(husart->mode == USART_MODE_INTERRUPT)		USART_IT_Init(husart->instance);		
+	else if(husart->mode == USART_MODE_DMA)				USART_DMA_Init(husart);		
+	
 	return USART_OK;
 }
 

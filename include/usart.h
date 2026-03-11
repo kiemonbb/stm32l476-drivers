@@ -34,6 +34,13 @@ typedef enum {
 	USART_ERROR_NE
 
 } usart_status_t;
+
+typedef struct {
+	USART_TypeDef* instance;
+	usart_mode_t mode;
+	uint8_t * rx_buffer;
+	uint32_t rx_size;
+} usart_config_t;
  
 typedef struct{
 	USART_TypeDef* instance;
@@ -60,7 +67,7 @@ typedef struct{
  
 /* API Functions */
  
-usart_status_t USART_Handle_Init(usart_handle_t*husart, USART_TypeDef* instance, usart_mode_t mode, uint8_t *rx_buffer, uint32_t rx_size);
+usart_status_t USART_Init(usart_handle_t*husart,usart_config_t * config);
  
 usart_status_t USART_Transmit(usart_handle_t* husart, const uint8_t * data, uint32_t byte_size, uint32_t timeout_ms);
  
