@@ -4,7 +4,7 @@
 
 extern volatile uint32_t systick_ms;
 
-void main(void){
+int main(void){
 	System_Init();
 
 	uint8_t usart_rx_buffer[256];

@@ -4,7 +4,7 @@
 
 extern volatile uint32_t systick_ms;
 
-void main(void){
+int main(void){
 	System_Init();
 			
 	const uint8_t * text = "USART2\r\n";

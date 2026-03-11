@@ -10,7 +10,7 @@ extern uint32_t _etext, _sidata;
 extern uint32_t _sdata,_edata;
 extern uint32_t _sbss, _ebss;
 
-void main(void);
+int main(void);
 
 void Reset_Handler(void);
 void NMI_Handler(void)					__attribute__((weak, alias("Default_Handler")));
@@ -202,7 +202,9 @@ void(* const isr_vector[])(void) = {
     0,
     RNG_IRQHandler,
     FPU_IRQHandler,
-};void Default_Handler(void) {
+};
+
+void Default_Handler(void) {
 	while(1);
 }
 void Reset_Handler(void) {
